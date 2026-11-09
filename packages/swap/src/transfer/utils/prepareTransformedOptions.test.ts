@@ -1,7 +1,14 @@
 import type { TAssetInfo } from '@paraspell/sdk-core';
 import type { PolkadotApi } from '@paraspell/sdk-core';
-import { createChainClient, findAssetInfo, getSupportedAssetsImpl } from '@paraspell/sdk-core';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import {
+  createChainClient,
+  findAssetInfo,
+  getSupportedAssetsImpl,
+  UnsupportedOperationError,
+} from '@paraspell/sdk-core';
+import { AccountId } from 'polkadot-api';
+import { toHex } from 'polkadot-api/utils';
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 
 import {
   getExchangeAsset,
@@ -19,6 +26,7 @@ const mockApiForChain = { api: {} };
 const mockApi = {
   createApiForChain: vi.fn().mockResolvedValue(mockApiForChain),
   config: undefined,
+  accountToHex: (address: string) => toHex(AccountId().enc(address)),
 } as unknown as PolkadotApi<unknown, unknown, unknown>;
 
 vi.mock('../../exchanges/ExchangeChainFactory');
@@ -57,6 +65,78 @@ describe('prepareTransformedOptions', () => {
 
   beforeEach(() => {
     vi.mocked(getSupportedAssetsImpl).mockReturnValue([]);
+  });
+
+  describe('local swap recipients', () => {
+    const sender = AccountId().dec(new Uint8Array(32).fill(1));
+    const recipient = AccountId().dec(new Uint8Array(32).fill(2));
+    const localOptions = {
+      api: mockApi,
+      from: 'AssetHubPolkadot',
+      to: 'AssetHubPolkadot',
+      exchange: 'AssetHubPolkadot',
+      currencyFrom: { symbol: 'ACA' },
+      currencyTo: { symbol: 'ASTR' },
+      amount: 1000n,
+      slippagePct: '1',
+      sender,
+      recipient,
+    } as const;
+
+    beforeEach(() => {
+      const dex = { chain: 'AssetHubPolkadot', apiType: 'GENERIC' } as ExchangeChain;
+      vi.mocked(createExchangeInstance).mockReturnValue(dex);
+      vi.mocked(selectBestExchange).mockResolvedValue(dex);
+      vi.mocked(getExchangeAsset).mockImplementation((_chain, currency) =>
+        'symbol' in currency && currency.symbol === 'ACA' ? acaAsset : astrAsset,
+      );
+      vi.mocked(getExchangeAssetByOriginAsset).mockReturnValue(acaAsset);
+      vi.mocked(findAssetInfo).mockReturnValue(acaAsset);
+      vi.mocked(getSupportedAssetsImpl).mockReturnValue([astrAsset]);
+      vi.mocked(supportsExchangePair).mockReturnValue(true);
+    });
+
+    afterEach(() => {
+      vi.mocked(getExchangeAsset).mockReset();
+    });
+
+    test.each([
+      { label: 'explicit exchange', exchange: 'AssetHubPolkadot' as const },
+      { label: 'automatic exchange', exchange: undefined },
+      { label: 'exchange candidates', exchange: ['AssetHubPolkadot'] as ['AssetHubPolkadot'] },
+    ])('rejects a different recipient with $label', async ({ exchange }) => {
+      await expect(prepareTransformedOptions({ ...localOptions, exchange })).rejects.toThrow(
+        UnsupportedOperationError,
+      );
+    });
+
+    test('rejects a different recipient when local origin and destination are omitted', async () => {
+      await expect(
+        prepareTransformedOptions({ ...localOptions, from: undefined, to: undefined }),
+      ).rejects.toThrow(UnsupportedOperationError);
+    });
+
+    test('allows the sender as recipient with another SS58 prefix', async () => {
+      const recipient = AccountId(0).dec(AccountId().enc(sender));
+      expect(recipient).not.toBe(sender);
+      const result = await prepareTransformedOptions({ ...localOptions, recipient });
+      expect(result.options.origin).toBeUndefined();
+      expect(result.options.destination).toBeUndefined();
+    });
+
+    test('allows a local swap without a recipient', async () => {
+      const result = await prepareTransformedOptions({ ...localOptions, recipient: undefined });
+      expect(result.options.destination).toBeUndefined();
+    });
+
+    test('retains a different recipient when the swap routes back to another chain', async () => {
+      const result = await prepareTransformedOptions({
+        ...localOptions,
+        from: 'Hydration',
+        to: 'Hydration',
+      });
+      expect(result.options.destination).toEqual({ chain: 'Hydration', address: recipient });
+    });
   });
 
   test('calls selectBestExchange if exchange is undefined', async () => {
