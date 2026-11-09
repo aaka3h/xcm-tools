@@ -10,11 +10,13 @@ import type {
   TChain,
   TDryRunResult,
   TGetXcmFeeResult,
+  TSubstrateChain,
 } from '@paraspell/sdk';
 import * as paraspellSdk from '@paraspell/sdk';
 import {
   InvalidCurrencyError,
   ScenarioNotSupportedError,
+  Version,
 } from '@paraspell/sdk';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -65,6 +67,10 @@ const feeResult: TGetXcmFeeResult = {
 const amountResult = 100n;
 
 const builderMock = {
+  api: {
+    getChainProviders: (chain: TSubstrateChain) =>
+      paraspellSdk.getChainProviders(chain),
+  },
   from: vi.fn().mockReturnThis(),
   to: vi.fn().mockReturnThis(),
   currency: vi.fn().mockReturnThis(),
@@ -412,6 +418,58 @@ describe('XTransferService', () => {
   });
 
   describe('generateXcmCalls', () => {
+    it('should return providers from the request context for custom and built-in transaction chains', async () => {
+      const options: XTransferDto = {
+        ...xTransferDto,
+        from: 'MyChain',
+        options: {
+          customChains: {
+            MyChain: {
+              paraId: 4242,
+              ecosystem: 'Polkadot',
+              xcmVersion: Version.V5,
+              providers: [
+                { name: 'Custom', endpoint: 'wss://rpc.mychain.example/ws' },
+              ],
+            },
+          },
+        },
+      };
+      const actualSdk =
+        await vi.importActual<typeof paraspellSdk>('@paraspell/sdk');
+      const customBuilder = {
+        ...builderMock,
+        api: actualSdk.Builder(options.options).api,
+        buildAll: vi.fn().mockResolvedValue(
+          ['MyChain', 'Acala'].map((chain) => ({
+            chain,
+            tx: {
+              getEncodedData: vi.fn().mockResolvedValue(new Uint8Array([1])),
+            },
+          })),
+        ),
+      };
+      vi.mocked(paraspellSdk.Builder).mockReturnValue(
+        customBuilder as unknown as ReturnType<typeof paraspellSdk.Builder>,
+      );
+
+      const result = await service.generateXcmCalls(options);
+
+      expect(result).toEqual([
+        {
+          chain: 'MyChain',
+          tx: txHash,
+          wsProviders: ['wss://rpc.mychain.example/ws'],
+        },
+        {
+          chain: 'Acala',
+          tx: txHash,
+          wsProviders: paraspellSdk.getChainProviders('Acala'),
+        },
+      ]);
+      expect(customBuilder.disconnect).toHaveBeenCalled();
+    });
+
     it('should generate multiple XCM calls and return array of transaction contexts', async () => {
       const options: XTransferDto = {
         ...xTransferDto,
