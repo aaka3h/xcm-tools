@@ -1,5 +1,6 @@
 import {
   applyDecimalAbstraction,
+  compareAddresses,
   convertBuilderConfig,
   UnsupportedOperationError,
 } from '@paraspell/sdk-core';
@@ -39,6 +40,15 @@ export const prepareTransformedOptions = async <
     exchange !== undefined && !Array.isArray(exchange)
       ? createExchangeInstance(exchange)
       : await selectBestExchange(options, originApi?.api, isForFeeEstimation);
+
+  if (
+    (!from || from === dex.chain) &&
+    (!to || to === dex.chain) &&
+    recipient &&
+    !compareAddresses(api, sender, recipient)
+  ) {
+    throw new UnsupportedOperationError('Local swaps require the recipient to match the sender.');
+  }
 
   const { assetFromOrigin, assetFromExchange, assetTo, feeAssetFromOrigin, feeAssetFromExchange } =
     resolveAssets(dex, options);
