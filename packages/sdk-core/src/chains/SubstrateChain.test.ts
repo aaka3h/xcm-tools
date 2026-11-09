@@ -841,7 +841,7 @@ describe('Parachain', () => {
 
   describe('getBalance', () => {
     it('routes native assets to getBalanceNative', async () => {
-      const nativeAsset = { symbol: 'DOT' } as TAssetInfo
+      const nativeAsset = { symbol: 'DOT', location: {} } as TAssetInfo
 
       const nativeSpy = vi.spyOn(chain, 'getBalanceNative').mockResolvedValue(11n)
       const foreignSpy = vi.spyOn(chain, 'getBalanceForeign').mockResolvedValue(0n)
@@ -872,7 +872,12 @@ describe('Parachain', () => {
       const palletMock = { mint: vi.fn().mockResolvedValue({ balanceTx: { module: 'Balances' } }) }
       vi.mocked(getPalletInstance).mockReturnValue(palletMock as unknown as BaseAssetsPallet)
 
-      const asset = { symbol: 'DOT', isNative: true, amount: 5n } as WithAmount<TAssetInfo>
+      const asset = {
+        symbol: 'DOT',
+        isNative: true,
+        location: {},
+        amount: 5n
+      } as WithAmount<TAssetInfo>
 
       const result = await chain.mint(api, '5FMock', asset, 1n)
 

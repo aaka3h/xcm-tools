@@ -47,6 +47,7 @@ import {
   resolveDestChain
 } from '../utils'
 import { createAsset, pickOtherMintPallet } from '../utils/asset'
+import { isChainNativeAsset } from '../utils/asset/isChainNativeAsset'
 import { resolveParaId } from '../utils/resolveParaId'
 import { getFeeAssetInfo } from '../utils/transfer/getFeeAssetInfo'
 import { resolveScenario } from '../utils/transfer/resolveScenario'
@@ -519,7 +520,7 @@ abstract class SubstrateChain<
     address: string,
     asset: TAssetInfo
   ) {
-    const isNativeAsset = isSymbolMatch(asset.symbol, this.getNativeAssetSymbol(api))
+    const isNativeAsset = isChainNativeAsset(api, this.chain, asset)
     if (isNativeAsset) return this.getBalanceNative(api, address, asset)
     return this.getBalanceForeign(api, address, asset)
   }
@@ -530,9 +531,11 @@ abstract class SubstrateChain<
     assetInfo: WithAmount<TAssetInfo>,
     balance: bigint
   ): Promise<TSetBalanceRes> {
-    const isMainNativeAsset = isSymbolMatch(assetInfo.symbol, this.getNativeAssetSymbol(api))
+    const isMainNativeAsset = isChainNativeAsset(api, this.chain, assetInfo)
+    const isMythosAsset =
+      this.chain === 'Mythos' && isSymbolMatch(assetInfo.symbol, this.getNativeAssetSymbol(api))
     const pallet =
-      (!assetInfo.isNative && this.chain !== 'Mythos') || !isMainNativeAsset
+      !isMainNativeAsset && !isMythosAsset
         ? pickOtherMintPallet(assetInfo, getOtherAssetsPallets(this.chain, api._customCtx))
         : getNativeAssetsPallet(this.chain, api._customCtx)
     return getPalletInstance(pallet).mint(api, address, assetInfo, balance, this)

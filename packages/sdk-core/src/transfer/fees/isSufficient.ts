@@ -1,9 +1,9 @@
 import type { TAssetInfo, WithAmount } from '@paraspell/assets'
-import { isSymbolMatch } from '@paraspell/assets'
 import type { TChain, TSubstrateChain } from '@paraspell/sdk-common'
 
 import type { PolkadotApi } from '../../api'
 import { getAssetBalanceInternal, getBalanceInternal } from '../../balance'
+import { isChainNativeAsset } from '../../utils/asset/isChainNativeAsset'
 
 export const isSufficientOrigin = async <TApi, TRes, TSigner, TCustomChain extends string = never>(
   api: PolkadotApi<TApi, TRes, TSigner, TCustomChain>,
@@ -24,8 +24,8 @@ export const isSufficientOrigin = async <TApi, TRes, TSigner, TCustomChain exten
     address: sender
   })
 
-  const isNativeAssetToOrigin = isSymbolMatch(asset.symbol, api.getNativeAssetSymbol(origin))
-  const isNativeAssetToDest = isSymbolMatch(asset.symbol, api.getNativeAssetSymbol(destination))
+  const isNativeAssetToOrigin = isChainNativeAsset(api, origin, asset)
+  const isNativeAssetToDest = isChainNativeAsset(api, destination, asset)
 
   if (isNativeAssetToOrigin && isNativeAssetToDest) {
     return balanceNative - edNative - feeNative - asset.amount > 0n
@@ -63,7 +63,7 @@ export const isSufficientDestination = async <
   asset: WithAmount<TAssetInfo>,
   feeNative: bigint
 ): Promise<boolean | undefined> => {
-  const isNativeAsset = isSymbolMatch(asset.symbol, api.getNativeAssetSymbol(destination))
+  const isNativeAsset = isChainNativeAsset(api, destination, asset)
 
   if (!isNativeAsset) return undefined
 
