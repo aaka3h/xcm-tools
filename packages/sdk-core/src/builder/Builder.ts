@@ -222,10 +222,10 @@ export class GeneralBuilder<
   /**
    * Whether to keep the account alive after the transfer.
    *
-   * @param value - A boolean indicating whether to keep the account alive.
+   * @param keepAlive - Whether to keep the account alive, or undefined to restore the default.
    * @returns An instance of Builder
    */
-  keepAlive(keepAlive: boolean) {
+  keepAlive(keepAlive?: boolean) {
     return new GeneralBuilder(this.api, this.batchManager, { ...this._options, keepAlive })
   }
 
