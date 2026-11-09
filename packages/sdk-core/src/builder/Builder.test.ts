@@ -8,7 +8,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { PolkadotApi } from '../api/PolkadotApi'
 import { AMOUNT_ALL, MIN_AMOUNT } from '../constants'
-import { DryRunFailedError, UnableToComputeError } from '../errors'
+import { DryRunFailedError, UnableToComputeError, UnsupportedOperationError } from '../errors'
 import { getEvmExtensionOrThrow, getEvmSnowbridgeExtensionOrThrow } from '../extensions'
 import {
   getMinTransferableAmount,
@@ -1553,6 +1553,33 @@ describe('Builder', () => {
         buildTransfer: buildSnowbridgeTransfer
       })
     })
+
+    it.each(
+      (['Darwinia', 'Ethereum'] as const).flatMap(from =>
+        (['buildEvm', 'signAndSubmit', 'signAndSubmitAll'] as const).map(method => ({
+          from,
+          method
+        }))
+      )
+    )(
+      'rejects swaps before $method dispatches an EVM transfer from $from',
+      async ({ from, method }) => {
+        vi.mocked(isViemSigner).mockReturnValue(true)
+        const builder = Builder(mockApi)
+          .from(from)
+          .to('AssetHubPolkadot')
+          .currency({ symbol: 'USDC', amount: AMOUNT })
+          .swap({ currencyTo: { symbol: 'DOT' }, exchange: 'Hydration' })
+          .sender(walletClient)
+          .recipient(ADDRESS)
+
+        await expect(builder[method]()).rejects.toThrow(UnsupportedOperationError)
+        expect(buildTransfer).not.toHaveBeenCalled()
+        expect(buildSnowbridgeTransfer).not.toHaveBeenCalled()
+        expect(executeTransfer).not.toHaveBeenCalled()
+        expect(executeSnowbridgeTransfer).not.toHaveBeenCalled()
+      }
+    )
 
     it('routes signAndSubmit through the EVM extension when senderSource is a WalletClient', async () => {
       vi.mocked(isViemSigner).mockReturnValue(true)
