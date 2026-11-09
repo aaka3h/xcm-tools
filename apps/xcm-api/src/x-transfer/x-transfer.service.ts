@@ -133,7 +133,8 @@ export class XTransferService {
       .currency(currency)
       .feeAsset(feeAsset)
       .recipient(recipient)
-      .ahAddress(ahAddress);
+      .ahAddress(ahAddress)
+      .keepAlive(keepAlive);
 
     if (sender) {
       finalBuilder = finalBuilder.sender(sender);
@@ -141,10 +142,6 @@ export class XTransferService {
 
     if (xcmVersion) {
       finalBuilder = finalBuilder.xcmVersion(xcmVersion);
-    }
-
-    if (keepAlive !== undefined) {
-      finalBuilder = finalBuilder.keepAlive(keepAlive);
     }
 
     if (pallet || method) {

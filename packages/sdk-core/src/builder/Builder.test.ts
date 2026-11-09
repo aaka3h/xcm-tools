@@ -460,6 +460,23 @@ describe('Builder', () => {
       expect(createTransferOrSwap).toHaveBeenCalledTimes(1)
     })
 
+    it('clears keepAlive for a later batch item without changing the previous item', () => {
+      const first = Builder(mockApi)
+        .from(CHAIN)
+        .to(CHAIN_2)
+        .currency(CURRENCY)
+        .recipient(ADDRESS)
+        .keepAlive(false)
+        .addToBatch()
+
+      const next = first.keepAlive(undefined).addToBatch()
+
+      expect(next.batchManager.transactionOptions.map(options => options.keepAlive)).toEqual([
+        false,
+        undefined
+      ])
+    })
+
     it('should initiate a para to relay transfer using batching', async () => {
       await Builder(mockApi)
         .from(CHAIN)

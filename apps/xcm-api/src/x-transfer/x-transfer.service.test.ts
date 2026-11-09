@@ -614,6 +614,42 @@ describe('XTransferService', () => {
   });
 
   describe('generateBatchXcmCall', () => {
+    it.each([
+      { from: 'Polkadot', to: 'Polkadot' },
+      { from: 'Acala', to: 'Basilisk' },
+    ] as const)(
+      'does not inherit keepAlive from the previous $from to $to transfer',
+      async ({ from, to }) => {
+        let keepAlive: boolean | undefined;
+        const batchKeepAlive: (boolean | undefined)[] = [];
+
+        const statefulBuilder = {
+          ...builderMock,
+          keepAlive: vi.fn((value: boolean | undefined) => {
+            keepAlive = value;
+            return statefulBuilder;
+          }),
+          addToBatch: vi.fn(() => {
+            batchKeepAlive.push(keepAlive);
+            return statefulBuilder;
+          }),
+        };
+        vi.mocked(paraspellSdk.Builder).mockReturnValue(
+          statefulBuilder as unknown as ReturnType<typeof paraspellSdk.Builder>,
+        );
+
+        const result = await service.generateBatchXcmCall({
+          transfers: [
+            { ...xTransferDto, from, to, keepAlive: false },
+            { ...xTransferDto, from, to },
+          ],
+        });
+
+        expect(result).toBe(txHashBatch);
+        expect(batchKeepAlive).toEqual([false, undefined]);
+      },
+    );
+
     it('should generate batch XCM call for valid transfers', async () => {
       const from: TChain = 'Acala';
       const to1: TChain = 'Basilisk';
