@@ -1129,7 +1129,10 @@ export class GeneralBuilder<
       TCustomChain
     >
   ) {
-    const { from, to, currency, recipient, ahAddress } = this._options
+    const { from, to, currency, recipient, ahAddress, swapOptions } = this._options
+    if (swapOptions) {
+      throw new UnsupportedOperationError('EVM-origin swaps are not supported.')
+    }
     assertToIsString(to)
     assertAddressIsString(recipient)
 
