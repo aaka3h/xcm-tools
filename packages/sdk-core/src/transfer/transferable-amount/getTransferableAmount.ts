@@ -65,7 +65,10 @@ const computeTransferableAmount = async <TApi, TRes, TSigner, TCustomChain exten
     asset
   })
 
-  const transferable = balance - BigInt(asset.existentialDeposit) - fee
+  // Native balance reads already reserve the existential deposit and any frozen funds.
+  const isNativeAsset = isAssetEqual(api.findNativeAssetInfoOrThrow(chain), asset)
+  const minimumBalance = isNativeAsset ? 0n : BigInt(asset.existentialDeposit)
+  const transferable = balance - minimumBalance - fee
 
   return transferable > 0n ? transferable : 0n
 }

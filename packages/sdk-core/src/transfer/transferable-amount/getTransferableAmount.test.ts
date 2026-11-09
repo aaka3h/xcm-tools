@@ -43,12 +43,12 @@ describe('getTransferableAmount', () => {
 
   beforeEach(() => {
     vi.resetAllMocks()
+    findNativeAssetInfoOrThrowSpy.mockReturnValue({ symbol: 'ASTR' } as TAssetInfo)
     vi.mocked(abstractDecimals).mockImplementation(amount => BigInt(amount))
   })
 
-  test('subtracts XCM fee for native asset', async () => {
-    const balance = 1000n
-    const ed = 100n
+  test('subtracts XCM fee from the already spendable native balance', async () => {
+    const balance = 900n
     const fee = 200n
 
     findAssetInfoOrThrowSpy.mockReturnValue({
@@ -63,7 +63,7 @@ describe('getTransferableAmount', () => {
 
     const result = await getTransferableAmount(baseOptions)
 
-    expect(result).toBe(balance - ed - fee)
+    expect(result).toBe(balance - fee)
     expect(getOriginXcmFee).toHaveBeenCalledWith({
       api: mockApi,
       buildTx,
@@ -99,7 +99,7 @@ describe('getTransferableAmount', () => {
   })
 
   test('returns 0 when transferable amount is negative', async () => {
-    const balance = 250n
+    const balance = 150n
     const fee = 200n
 
     findAssetInfoOrThrowSpy.mockReturnValue({
@@ -140,8 +140,7 @@ describe('getTransferableAmount', () => {
   })
 
   test('subtracts the fee for native asset paid in native when a fee asset is selected', async () => {
-    const balance = 1000n
-    const ed = 100n
+    const balance = 900n
     const fee = 200n
     const doton = { symbol: 'DOTON', decimals: 18, existentialDeposit: '100' } as TAssetInfo
 
@@ -158,7 +157,7 @@ describe('getTransferableAmount', () => {
       feeAsset: { symbol: 'DOT' }
     })
 
-    expect(result).toBe(balance - ed - fee)
+    expect(result).toBe(balance - fee)
   })
 
   test('throws error when XCM fee is undefined for native asset', async () => {
