@@ -1,4 +1,4 @@
-import type { TAssetInfo } from '@paraspell/assets'
+import { findNativeAssetInfoOrThrow } from '@paraspell/assets'
 import { describe, expect, it, vi } from 'vitest'
 
 import type { PolkadotApi } from '../../api'
@@ -15,10 +15,10 @@ describe('Relaychain', () => {
   const relaychain = () => getChain<unknown, unknown, unknown, 'Polkadot'>('Polkadot')
 
   it('reads balance from the System pallet', async () => {
+    const asset = findNativeAssetInfoOrThrow('Polkadot')
     const api = {
-      getNativeAssetSymbol: vi.fn().mockReturnValue('DOT')
+      findNativeAssetInfoOrThrow: vi.fn().mockReturnValue(asset)
     } as unknown as PolkadotApi<unknown, unknown, unknown>
-    const asset = { symbol: 'DOT' } as TAssetInfo
     const palletGetBalance = vi.fn().mockResolvedValueOnce(55n)
     vi.mocked(getPalletInstance).mockReturnValueOnce({
       getBalance: palletGetBalance
